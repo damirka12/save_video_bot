@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls CLAUDE.md)",
+      "Bash(ls README*)"
+    ]
+  }
+}

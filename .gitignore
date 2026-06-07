@@ -1,0 +1,12 @@
+# Секреты — НЕ коммитить
+.env
+
+# Данные (БД, временные загрузки)
+data/
+downloads/
+youtube_cookies.txt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo

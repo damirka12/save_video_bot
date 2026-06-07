@@ -8,6 +8,7 @@ from handlers.start import router as start_router
 from handlers.download import router as download_router
 from handlers.admin import router as admin_router
 from services.db_service import init_db
+from services.downloader import cleanup_downloads
 
 logging.basicConfig(
     level=logging.INFO,
@@ -17,6 +18,9 @@ logging.basicConfig(
 
 async def main():
     await init_db()
+    removed = cleanup_downloads()
+    if removed:
+        logging.info(f"Очищено сиротливых файлов: {removed}")
 
     if USE_LOCAL_SERVER:
         from aiogram.client.session.aiohttp import AiohttpSession

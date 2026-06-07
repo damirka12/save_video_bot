@@ -75,6 +75,17 @@ REGISTRY = [
      "default": "{emoji} <b>{title}</b>\n{duration_line}\n\n{label}"},
     {"key": "dl.link_expired", "group": "Скачивание", "label": "Ссылка устарела",
      "placeholders": [], "default": "❌ Ссылка устарела, отправь снова"},
+    {"key": "dl.too_long", "group": "Скачивание", "label": "Видео слишком длинное",
+     "placeholders": ["duration", "limit"],
+     "default": ("⏱ Видео слишком длинное ({duration})\n"
+                 "Максимум — {limit}.\n"
+                 "Попробуй видео покороче 🙏")},
+    {"key": "dl.in_progress", "group": "Скачивание", "label": "У юзера уже идёт загрузка",
+     "placeholders": [],
+     "default": "⏳ Я ещё качаю твоё прошлое видео — дождись окончания, пожалуйста."},
+    {"key": "dl.queued", "group": "Скачивание", "label": "Очередь (много загрузок)",
+     "placeholders": [],
+     "default": "⏳ Сейчас много загрузок — ты в очереди, подожди немного..."},
     {"key": "dl.downloading", "group": "Скачивание", "label": "Начало скачивания",
      "placeholders": ["quality"],
      "default": "⬇️ Скачиваю в качестве <b>{quality}</b>...\n\n⏳ Это может занять минуту"},

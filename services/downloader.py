@@ -7,6 +7,21 @@ from config import DOWNLOAD_DIR
 
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
+
+def cleanup_downloads():
+    """Удаляет файлы, оставшиеся в папке загрузок (например, после краша
+    между скачиванием и отправкой). Вызывается при старте бота."""
+    removed = 0
+    for name in os.listdir(DOWNLOAD_DIR):
+        path = os.path.join(DOWNLOAD_DIR, name)
+        try:
+            if os.path.isfile(path):
+                os.remove(path)
+                removed += 1
+        except Exception:
+            pass
+    return removed
+
 # Поддерживаемые платформы
 PLATFORMS = {
     "youtube.com": "YouTube",
@@ -163,7 +178,7 @@ async def crop_portrait(filepath: str) -> str:
         # Портретный с кривым SAR — исправляем (нужен ре-encode чтобы применить фильтр)
         r = await asyncio.to_thread(
             subprocess.run,
-            ["ffmpeg", "-i", filepath, "-vf", "setsar=1", "-c:a", "copy", "-y", output],
+            ["ffmpeg", "-i", filepath, "-vf", "setsar=1", "-preset", "veryfast", "-c:a", "copy", "-y", output],
             capture_output=True
         )
         if r.returncode == 0 and os.path.exists(output):
@@ -194,7 +209,7 @@ async def crop_portrait(filepath: str) -> str:
 
     r = await asyncio.to_thread(
         subprocess.run,
-        ["ffmpeg", "-i", filepath, "-vf", f"crop={crop}", "-c:a", "copy", "-y", output],
+        ["ffmpeg", "-i", filepath, "-vf", f"crop={crop}", "-preset", "veryfast", "-c:a", "copy", "-y", output],
         capture_output=True
     )
     if r.returncode == 0 and os.path.exists(output):
@@ -225,7 +240,7 @@ async def compress_video(filepath: str, max_mb: int) -> str | None:
         r = await asyncio.to_thread(
             subprocess.run,
             ["ffmpeg", "-i", filepath,
-             "-c:v", "libx264", "-b:v", f"{video_kbps}k",
+             "-c:v", "libx264", "-preset", "veryfast", "-b:v", f"{video_kbps}k",
              "-c:a", "aac", "-b:a", f"{audio_kbps}k",
              "-y", output],
             capture_output=True

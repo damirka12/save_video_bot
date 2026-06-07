@@ -50,6 +50,10 @@ State storage is `MemoryStorage` (in-process). Restarting the bot loses all FSM 
 2. The keyboard differs by platform: `SIMPLE_PLATFORMS = {"TikTok", "Instagram"}` get only Видео/Аудио; everything else gets 360p/720p/1080p/Аудио. The callback data format is `q:{url_key}:{quality}`.
 3. `download_selected` reads back the URL, downloads via `download_video`, then enforces the size limit (see below), then uploads as `answer_video` or `answer_audio` and **deletes the local file in a `finally` block** (downloads are not retained).
 
+### Download guards (handlers/download.py, config.py)
+
+Several protections layer onto the flow, all tunable via env (`config.py`): `_url_cache` is a `_TTLCache` (TTL + max size, so it can't leak); `handle_url` rejects videos longer than `MAX_VIDEO_DURATION` before downloading; `download_selected` enforces **one download per user** (`_active_users`) and a global `asyncio.Semaphore(MAX_CONCURRENT_DOWNLOADS)` (shows a "queued" message when full). The actual work lives in `_do_download`, wrapped by the semaphore. On startup, `bot.py` calls `cleanup_downloads()` to remove orphan files left by a mid-process crash. ffmpeg re-encodes use `-preset veryfast` to cap CPU.
+
 ### `services/downloader.py` — the core logic
 
 - All `yt-dlp` and `ffmpeg` work runs in `asyncio.to_thread` to avoid blocking the event loop. Download progress is pushed back to the async handler from a sync `yt-dlp` hook via `asyncio.run_coroutine_threadsafe`.

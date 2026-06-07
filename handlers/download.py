@@ -1,4 +1,6 @@
 import os
+import time
+import asyncio
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -8,12 +10,51 @@ from services.downloader import (
 )
 from services.db_service import add_user
 from services.texts import txt, raw
-from config import TELEGRAM_LIMIT_MB
+from config import (
+    TELEGRAM_LIMIT_MB, MAX_VIDEO_DURATION, MAX_CONCURRENT_DOWNLOADS,
+    URL_CACHE_TTL, URL_CACHE_MAX,
+)
 
 router = Router()
 
-# Кэш URL для callback
-_url_cache: dict[str, str] = {}
+
+class _TTLCache:
+    """Кэш ссылок с временем жизни и ограничением размера — чтобы не тёк по памяти."""
+
+    def __init__(self, ttl: int, maxsize: int):
+        self.ttl = ttl
+        self.maxsize = maxsize
+        self._d: dict[str, tuple[str, float]] = {}
+
+    def _evict(self):
+        now = time.monotonic()
+        for k in [k for k, (_, ts) in self._d.items() if now - ts > self.ttl]:
+            del self._d[k]
+        while len(self._d) > self.maxsize:
+            oldest = min(self._d, key=lambda k: self._d[k][1])
+            del self._d[oldest]
+
+    def set(self, key: str, value: str):
+        self._d[key] = (value, time.monotonic())
+        self._evict()
+
+    def get(self, key: str):
+        item = self._d.get(key)
+        if not item:
+            return None
+        value, ts = item
+        if time.monotonic() - ts > self.ttl:
+            del self._d[key]
+            return None
+        return value
+
+
+# Кэш URL для callback (TTL + лимит размера)
+_url_cache = _TTLCache(URL_CACHE_TTL, URL_CACHE_MAX)
+
+# Защита: не больше N одновременных загрузок на весь бот + не больше 1 на юзера
+_download_sem = asyncio.Semaphore(MAX_CONCURRENT_DOWNLOADS)
+_active_users: set[int] = set()
 
 
 SIMPLE_PLATFORMS = {"TikTok", "Instagram"}
@@ -53,12 +94,25 @@ async def handle_url(message: Message):
 
     # Сохраняем URL в кэш
     url_key = str(abs(hash(url)) % 10**9)
-    _url_cache[url_key] = url
+    _url_cache.set(url_key, url)
 
     label = await raw("dl.choose_format") if platform in SIMPLE_PLATFORMS else await raw("dl.choose_quality")
 
     try:
         info = await get_video_formats(url)
+
+        # Пре-проверка длины — не качаем заведомо неподъёмное
+        if MAX_VIDEO_DURATION and info["duration"] and info["duration"] > MAX_VIDEO_DURATION:
+            await status.edit_text(
+                await txt(
+                    "dl.too_long",
+                    duration=format_duration(info["duration"]),
+                    limit=format_duration(MAX_VIDEO_DURATION),
+                ),
+                parse_mode="HTML",
+            )
+            return
+
         duration = format_duration(info["duration"])
 
         if platform in SIMPLE_PLATFORMS:
@@ -90,6 +144,25 @@ async def download_selected(callback: CallbackQuery):
         await callback.answer(await raw("dl.link_expired"), show_alert=True)
         return
 
+    # Один юзер — одна загрузка за раз
+    user_id = callback.from_user.id
+    if user_id in _active_users:
+        await callback.answer(await raw("dl.in_progress"), show_alert=True)
+        return
+
+    await callback.answer()
+    _active_users.add(user_id)
+    try:
+        # Если все слоты заняты — честно предупреждаем, что ждём очередь
+        if _download_sem.locked():
+            await callback.message.edit_text(await txt("dl.queued"))
+        async with _download_sem:
+            await _do_download(callback, url, url_key, quality, platform)
+    finally:
+        _active_users.discard(user_id)
+
+
+async def _do_download(callback: CallbackQuery, url: str, url_key: str, quality: str, platform: str):
     quality_labels = {
         "360": "360p",
         "720": "720p",
@@ -98,7 +171,6 @@ async def download_selected(callback: CallbackQuery):
         "best": "авто",
     }
 
-    await callback.answer()
     await callback.message.edit_text(
         await txt("dl.downloading", quality=quality_labels.get(quality, quality)),
         parse_mode="HTML"

@@ -10,9 +10,10 @@ A Telegram bot (`@SaveVideoFreee_bot`) that downloads videos from YouTube, Insta
 
 Production runs **on a server via Docker**, not locally. The user owns all git and server operations — Claude only makes code changes and hands the user the exact commands to run (do not run `git push/pull/commit` or `docker compose` yourself). See the `deploy-workflow` memory.
 
-Two services in `docker-compose.yml`, both built from the same `Dockerfile` (which installs `ffmpeg`):
-- `bot` — runs `python bot.py` (long-polling)
-- `admin` — runs `uvicorn web.app:app` on port 8080 (text editor UI)
+Three services in `docker-compose.yml`:
+- `telegram-api` — self-hosted Telegram Bot API server (`aiogram/telegram-bot-api` image) that raises the upload limit from 50 MB to 2000 MB. Needs `TELEGRAM_API_ID`/`TELEGRAM_API_HASH` from my.telegram.org. The bot reaches it at `http://telegram-api:8081` over the compose network.
+- `bot` — runs `python bot.py` (long-polling), built from `Dockerfile` (installs `ffmpeg`)
+- `admin` — runs `uvicorn web.app:app` on port 8080 (text editor UI), same image
 
 ```bash
 docker compose up -d --build      # build & run both services
@@ -31,7 +32,7 @@ No test suite or linter. Syntax-check with `python3 -m py_compile <files>`. `ffm
 
 `config.py` and `db_service.py` read from **environment variables** (loaded from `.env` via docker-compose `env_file`), with hardcoded fallbacks so local `python bot.py` still works. `.env` is gitignored — `.env.example` is the template. Vars: `BOT_TOKEN`, `ADMIN_ID`, `DB_PATH`, `ADMIN_PANEL_USER`/`ADMIN_PANEL_PASSWORD` (Basic-Auth for the admin UI), `ADMIN_PORT`.
 
-- `USE_LOCAL_SERVER` (still in `config.py`) — when `True`, routes through a self-hosted Telegram Bot API server at `LOCAL_SERVER_URL`, raising the upload limit. This single flag also flips `TELEGRAM_LIMIT_MB` between **50 MB** (cloud) and **2000 MB** (local). Change the limit via this flag, not the number.
+- `USE_LOCAL_SERVER` (env, default false) — when true, the bot connects to the self-hosted `telegram-api` server via `LOCAL_SERVER_URL`, raising the upload limit. It also flips `TELEGRAM_LIMIT_MB` between **50 MB** (cloud) and **2000 MB** (local). `bot.py` waits (retrying `get_me`) for the API server to come up before polling. **One-time migration step:** switching a bot from cloud to a local server requires calling `https://api.telegram.org/bot<TOKEN>/logOut` once (and the reverse — `<local>/bot<TOKEN>/logOut` — to go back). Cookies for yt-dlp live at `COOKIES_FILE` (default `cookies/youtube_cookies.txt`, a bind-mounted dir so a missing file is harmless).
 - **The SQLite DB lives in `data/users.db`** (env `DB_PATH`), and `data/` is bind-mounted into *both* containers so they share one DB file. This matters: SQLite is in WAL mode with `busy_timeout`, and the `-wal`/`-shm` sidecar files must be in a shared directory — never split the DB across separate single-file mounts.
 
 ## Architecture

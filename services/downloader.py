@@ -3,7 +3,7 @@ import re
 import json
 import asyncio
 import yt_dlp
-from config import DOWNLOAD_DIR
+from config import DOWNLOAD_DIR, COOKIES_FILE
 
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
@@ -57,7 +57,13 @@ def get_platform_emoji(platform: str) -> str:
 async def get_video_formats(url: str) -> list[dict]:
     """Получает доступные форматы без скачивания."""
     def sync_info():
-        with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True}) as ydl:
+        opts = {
+            "quiet": True,
+            "no_warnings": True,
+            "extractor_args": {"youtube": {"player_client": ["ios"]}},
+            "cookiefile": COOKIES_FILE if os.path.exists(COOKIES_FILE) else None,
+        }
+        with yt_dlp.YoutubeDL(opts) as ydl:
             return ydl.extract_info(url, download=False)
 
     try:
@@ -118,7 +124,7 @@ async def download_video(url: str, quality: str = "best", progress_cb=None, plat
             "no_warnings": True,
             "progress_hooks": [lambda d: _hook(d, progress_cb, loop)],
             "extractor_args": {"youtube": {"player_client": ["ios"]}},
-            "cookiefile": "youtube_cookies.txt" if os.path.exists("youtube_cookies.txt") else None,
+            "cookiefile": COOKIES_FILE if os.path.exists(COOKIES_FILE) else None,
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:

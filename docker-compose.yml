@@ -1,17 +1,31 @@
 services:
+  # Собственный Telegram Bot API сервер — снимает лимит 50 МБ (до 2000 МБ).
+  # Требует TELEGRAM_API_ID / TELEGRAM_API_HASH с my.telegram.org в .env.
+  telegram-api:
+    image: aiogram/telegram-bot-api:latest
+    container_name: save_video_tgapi
+    restart: unless-stopped
+    environment:
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
+    volumes:
+      - telegram-bot-api-data:/var/lib/telegram-bot-api
+
   bot:
     build: .
     container_name: save_video_bot
     restart: unless-stopped
     env_file:
       - .env
+    depends_on:
+      - telegram-api
     volumes:
       # data/ — общая папка с БД (важно: один том на оба контейнера)
       - ./data:/app/data
       # Временные загрузки (файлы всё равно удаляются после отправки)
       - ./downloads:/app/downloads
-      # Раскомментируй, если используешь cookies для YouTube:
-      # - ./youtube_cookies.txt:/app/youtube_cookies.txt
+      # Cookies для YouTube/Instagram — положи файл в ./cookies/youtube_cookies.txt
+      - ./cookies:/app/cookies
 
   admin:
     build: .
@@ -25,3 +39,6 @@ services:
     volumes:
       # Та же папка с БД, что и у бота
       - ./data:/app/data
+
+volumes:
+  telegram-bot-api-data:

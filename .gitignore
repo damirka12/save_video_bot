@@ -1,9 +1,10 @@
 # Секреты — НЕ коммитить
 .env
 
-# Данные (БД, временные загрузки)
+# Данные (БД, временные загрузки, cookies)
 data/
 downloads/
+cookies/
 youtube_cookies.txt
 
 # Python

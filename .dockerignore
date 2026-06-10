@@ -3,6 +3,7 @@ __pycache__/
 *.pyo
 data/
 downloads/
+cookies/
 .env
 .git/
 .gitignore

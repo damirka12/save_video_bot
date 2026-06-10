@@ -27,6 +27,16 @@ async def main():
         from aiogram.client.telegram import TelegramAPIServer
         session = AiohttpSession(api=TelegramAPIServer.from_base(LOCAL_SERVER_URL))
         bot = Bot(token=BOT_TOKEN, session=session)
+        logging.info(f"Локальный Bot API сервер: {LOCAL_SERVER_URL} (лимит до 2000 МБ)")
+        # Сервер поднимается на пару секунд дольше — ждём готовности
+        for attempt in range(30):
+            try:
+                me = await bot.get_me()
+                logging.info(f"Подключился к локальному серверу как @{me.username}")
+                break
+            except Exception as e:
+                logging.warning(f"Жду локальный Bot API сервер... ({type(e).__name__})")
+                await asyncio.sleep(2)
     else:
         bot = Bot(token=BOT_TOKEN)
 

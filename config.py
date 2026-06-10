@@ -7,16 +7,23 @@ BOT_TOKEN = os.getenv("BOT_TOKEN") or "7554465775:AAE3x74_-jMdSjgMcEAl-0WbRbsZj1
 ADMIN_ID  = int(os.getenv("ADMIN_ID") or 679951507)
 
 # ─── Telegram Local Server ────────────────────────────────────
-TELEGRAM_API_ID   = ""   # Получить на my.telegram.org
-TELEGRAM_API_HASH = ""   # Получить на my.telegram.org
-LOCAL_SERVER_URL  = "http://localhost:8081"
-USE_LOCAL_SERVER  = False  # Поставь True после запуска сервера
+# Снимает лимит 50 МБ → до 2000 МБ. Требует API_ID/API_HASH с my.telegram.org.
+TELEGRAM_API_ID   = os.getenv("TELEGRAM_API_ID", "")
+TELEGRAM_API_HASH = os.getenv("TELEGRAM_API_HASH", "")
+# В docker имя сервиса — telegram-api; локально без докера — http://localhost:8081
+LOCAL_SERVER_URL  = os.getenv("LOCAL_SERVER_URL", "http://telegram-api:8081")
+USE_LOCAL_SERVER  = (os.getenv("USE_LOCAL_SERVER", "false").lower() in ("1", "true", "yes"))
 
 # ─── Папка для скачивания ─────────────────────────────────────
 DOWNLOAD_DIR = "downloads"
 
+# ─── Cookies (для YouTube/Instagram при блокировках) ─────────
+# Положи файл в cookies/youtube_cookies.txt — подхватится автоматически.
+COOKIES_FILE = os.getenv("COOKIES_FILE", "cookies/youtube_cookies.txt")
+
 # ─── Лимит Telegram (МБ) ─────────────────────────────────────
-TELEGRAM_LIMIT_MB = 2000 if USE_LOCAL_SERVER else 50
+# С локальным сервером — 2000, без него — 50. Можно переопределить через env.
+TELEGRAM_LIMIT_MB = int(os.getenv("TELEGRAM_LIMIT_MB") or (2000 if USE_LOCAL_SERVER else 50))
 
 # ─── Защита / лимиты ─────────────────────────────────────────
 # Максимальная длина видео в секундах (0 — без лимита). Не качаем то, что заведомо не влезет.
